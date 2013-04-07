@@ -1,0 +1,71 @@
+<html>
+	<head>
+		<script src="Circle.js"></script>
+		<script id="Vertex" type=".vert">
+		precision highp float;
+		attribute highp float angle;
+		varying highp float fangle;
+		uniform highp float radius;
+
+		varying vec4 fcolor;
+
+		vec4 transform(in float a);
+		vec4 color(in float a);
+
+		void main()
+		{
+			gl_Position = transform(angle);
+			fangle = angle;
+			gl_PointSize = float(1);
+			fcolor = color(angle);
+		}
+
+		vec4 transform(in float a)
+		{
+			return vec4(cos(a) * radius, sin(a) * radius, 0.0, 1.0);
+		}
+
+		
+		vec4 color(in float a)
+		{
+			return vec4(smoothstep(0.0, float(sin(a * 5.0) + 10.0), cos(a * 0.1) * 5.5), 
+				smoothstep(0.0, float(tan (a * 0.1) * 3.1), cos(a * 0.55) ), 0.0, 1.0);
+		}
+		
+
+		
+
+		</script>
+		<script id="Fragment" type=".frag">
+		precision highp float;
+		varying highp float fangle;
+		varying vec4 fcolor;
+
+		vec4 color(in float a);
+
+		void main()
+		{
+			//gl_FragColor = color(fangle);
+			gl_FragColor = fcolor;
+		}
+
+		vec4 color(in float a)
+		{
+			return vec4(smoothstep(0.0, float(sin(a * 5.0) + 10.0), cos(a * 0.1) * 5.5), 
+				smoothstep(0.0, float(tan (a * 0.1) * 3.1), cos(a * 0.55) ), 0.0, 1.0);
+		}
+		</script>
+	</head>
+	<body onLoad="main();">
+		<div id="TextandInput">
+			<p>Choose rendering option from buttons below:</p>
+			Polygon<input type="radio" value="Polygon" onCLick="Render(this.value);"/> <br />
+			Line loop<input type="radio" value="LINE_LOOP" onCLick="Render(this.value);" /> <br />
+			Point sprite<input type="radio" value="POINT_SPRITE" onCLick="Render(this.value);" /> <br />
+		</div>
+		<canvas id="WebGLCanvas" width="300" height="300" style="border: solid 1px;">Canvas is not supported. Get a better browser.</canvas>
+	</body>
+</html>
+
+
+ 
