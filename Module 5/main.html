@@ -1,0 +1,133 @@
+<html>
+<head> 
+	<script src="Lighting.js"></script>
+	<script src="https://rawgit.com/mrdoob/three.js/master/build/three.js"></script>
+
+	<script id="CustomLightingVertexShader" type="x-shader/x-vertex">
+
+		uniform vec3 directionalLightVector;
+		uniform vec4 directionalLightDiffuse;
+		uniform vec4 directionalLightSpecular;
+
+		uniform vec3 spotLightPosition;
+		uniform vec3 spotLightTargetPosition;
+		uniform vec4 spotLightDiffuse;
+		uniform vec4 spotLightSpecular;
+
+		
+		varying vec3 directionalHalfEye;
+		varying vec3 directionalLightEye;
+
+		varying vec3 spotLightEye;
+		varying vec3 spotLightDirectionEye;
+
+		varying vec3 vertexNormal;
+		varying vec2 uvCoordinates;
+		void main()
+		{
+			//vertex position and normal transformations
+			vec4 vertexPosition = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+			vertexNormal = normalize(normalMatrix * normal);
+
+			//directional lighting vectors
+			directionalLightEye = (viewMatrix * vec4(directionalLightVector, 0.0)).xyz;
+			directionalHalfEye = -vertexPosition.xyz - directionalLightEye;
+
+			//spotlight vectors
+			vec3 spotLightDirection = spotLightTargetPosition - spotLightPosition;
+			spotLightEye = -vertexPosition.xyz + (viewMatrix * vec4(spotLightPosition, 1.0)).xyz; //gives the vector for hitting the vertex, but not the direction of the spotlight itself
+			spotLightDirectionEye = normalize(viewMatrix * vec4(spotLightDirection, 1.0)).xyz;
+
+
+			uvCoordinates = uv; //THREE.js included uvs
+			gl_Position = vertexPosition;
+		}
+	</script>
+
+	<script id="CustomLightingFragmentShader" type="x-shader/x-vertex">
+
+		uniform vec3 directionalLightVector;
+		uniform vec4 directionalLightDiffuse;
+		uniform vec4 directionalLightSpecular;
+
+		uniform float spotLightAngle;
+		uniform vec4 spotLightDiffuse;
+		uniform vec4 spotLightSpecular;
+
+		uniform sampler2D rockTexture;
+
+		varying vec3 directionalHalfEye;
+		varying vec3 directionalLightEye;
+
+		varying vec3 spotLightEye;
+		varying vec3 spotLightDirectionEye;
+
+		varying vec3 vertexNormal;
+		varying vec2 uvCoordinates;
+		
+		void main()
+		{
+			float cosineThetaDirectional = max(dot(normalize(vertexNormal), normalize(directionalLightEye)), 0.0); //if cosine would be negative, make it 0. Light is invisible in our model if cosine is negative
+			float cosineThetaSpot = max(dot(normalize(vertexNormal), normalize(spotLightEye)), 0.0);
+
+			vec4 calculatedColor = vec4(0,0,0,1);
+			vec4 specular;
+			
+
+			//if the light actually hits the surface
+			if (cosineThetaDirectional > 0.0)
+			{
+				
+				//Directional lighting specular
+				float cosineDeltaDirectional = max(dot(normalize(vertexNormal), directionalHalfEye), 0.0);
+				specular = pow(cosineThetaDirectional, 100.0) * directionalLightSpecular; //no specific material shinyness
+				calculatedColor = cosineThetaDirectional * directionalLightDiffuse * texture2D(rockTexture, uvCoordinates) + specular;
+			}
+
+			//if the light actually can hit the surface at all
+			if (cosineThetaSpot > 0.0)
+			{
+				float cosineDeltaSpot =  dot(normalize(spotLightDirectionEye), normalize(spotLightEye)); //clamp(dot(normalize(spotLightDirectionEye), normalize(spotLightEye)), 0.0, 1.0);
+				float spotLightVectorLength = length(spotLightEye);
+				
+
+				//as far as I remember, calculating cosine is expensive, but don't have an alternative currently. 
+				if (cosineDeltaSpot > cos(spotLightAngle))
+				{
+					
+
+					float attenuation = 1.0 ;/// (1.0 + 0.1 * spotLightVectorLength + 0.2 * spotLightVectorLength * spotLightVectorLength);
+
+					float spotDecayMultiplier = pow(cosineDeltaSpot, 2.0); //decay
+
+					calculatedColor += (spotLightDiffuse * cosineThetaSpot /*+ spotLightSpecular * pow(cosineDeltaSpot, 3.0)*/) /** spotDecayMultiplier*/ * attenuation;
+
+
+					//one attenuation equation = 1 / 1 + 2d/r + d^2/r^2    d, distance    r, light radius. Probably fairly correct
+					//Will probably do this instead:
+					//1 / k0, k1d + k2d^2  where k0, k1 and k2 are arbitrary   or
+					//1 / 1 + kd^2    where k is arbitrary
+
+					//attenuation * "spoteffect"
+					//= cosineDeltaSpot^decay / attenuation
+					//= cosineDeltaSpot^decay / k0 + k1d + k2d^2
+
+					//= (diffuse + specular) * cosineDeltaSpot^decay / k0 + k1d + k2d^2
+					//= (cosineThetaSpot * spotLightDiffuse + normaldothalfvectorSpot^shinyness * spotLightSpecular * materialSpecularIfAny) * cosineDeltaSpot^decay / k0 + k1d + k2d^2
+
+					//need to get the direction vector though, how?
+					
+
+				}
+
+			}
+
+			gl_FragColor = calculatedColor;
+		}
+	</script>
+
+</head>
+<body onLoad="main();">
+	<canvas id="ThreeCanvas" width="1024" height="576" style="border: solid 1px;">Canvas is not supported. Get a better browser.</canvas>
+</body>
+</html>
